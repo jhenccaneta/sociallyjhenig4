@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — Instagram Lead Generation Blueprint</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<!-- Stripe.js for secure card tokenisation (Whop uses Stripe under the hood) -->
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+/* ── TOKENS ── */
+:root {
+  --cream: #F7F3EE;
+  --ink: #1A1612;
+  --ink-light: #3D3530;
+  --accent: #6B3FA0;
+  --accent-light: #9B6FD4;
+  --warm-gray: #9A8F87;
+  --border: #DDD5CC;
+  --rule: #C8BFBA;
+  --error: #C0392B;
+  --success: #27AE60;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* grain */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.4;
+}
+
+/* ── TYPE ── */
+h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(26px, 3vw, 40px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+}
+h1 em { font-style: italic; color: var(--accent); }
+p { color: var(--ink-light); margin-bottom: 14px; }
+p:last-child { margin-bottom: 0; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── TWO-COLUMN LAYOUT ── */
+.checkout-wrap {
+  display: grid;
+  grid-template-columns: 1fr 440px;
+  flex: 1;
+  min-height: 100vh;
+}
+
+/* ── LEFT ── */
+.checkout-left {
+  padding: 60px 52px 80px;
+  display: flex;
+  flex-direction: column;
+}
+
+.checkout-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--warm-gray);
+  text-decoration: none;
+  margin-bottom: 44px;
+  transition: color 0.2s;
+  width: fit-content;
+}
+.checkout-back:hover { color: var(--accent); }
+
+.checkout-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 14px;
+  opacity: 0;
+  animation: fadeUp 0.6s ease 0.1s forwards;
+}
+.checkout-title {
+  opacity: 0;
+  animation: fadeUp 0.6s ease 0.2s forwards;
+  margin-bottom: 8px;
+}
+.checkout-subtitle {
+  font-size: 15px;
+  color: var(--warm-gray);
+  margin-bottom: 0;
+  opacity: 0;
+  animation: fadeUp 0.6s ease 0.3s forwards;
+}
+
+/* trust strip */
+.trust-strip {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  margin: 28px 0 36px;
+  flex-wrap: wrap;
+  opacity: 0;
+  animation: fadeUp 0.6s ease 0.4s forwards;
+}
+.trust-item {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--warm-gray);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── FORM SECTIONS ── */
+.form-block {
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.6s ease 0.5s forwards;
+}
+.form-block + .form-block { animation-delay: 0.6s; }
+.form-block:last-of-type  { animation-delay: 0.7s; }
+
+.form-section-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 20px;
+}
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.form-group:last-child { margin-bottom: 0; }
+
+.form-group label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--warm-gray);
+}
+
+.form-group input,
+.form-group select {
+  background: white;
+  border: 1px solid var(--border);
+  padding: 13px 15px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  width: 100%;
+}
+.form-group input:focus,
+.form-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(107,63,160,0.1);
+}
+.form-group input::placeholder { color: var(--border); }
+.form-group input.error { border-color: var(--error); }
+
+.select-wrap { position: relative; }
+.select-wrap::after {
+  content: '↓';
+  position: absolute;
+  right: 14px;
+  bottom: 13px;
+  color: var(--warm-gray);
+  pointer-events: none;
+  font-size: 13px;
+}
+
+/* ── STRIPE CARD ELEMENT ── */
+.card-element-wrapper {
+  background: white;
+  border: 1px solid var(--border);
+  padding: 14px 15px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card-element-wrapper.focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(107,63,160,0.1);
+}
+.card-element-wrapper.error { border-color: var(--error); }
+
+#card-element { min-height: 22px; }
+
+.secure-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--warm-gray);
+  margin-top: 10px;
+}
+.secure-note::before { content: '🔒'; font-size: 13px; }
+
+/* card brand icons */
+.card-icons { display: flex; gap: 5px; margin-top: 10px; }
+.card-icon {
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--warm-gray);
+  background: var(--cream);
+}
+
+/* ── ERROR / STATUS MESSAGES ── */
+.field-error {
+  font-size: 12px;
+  color: var(--error);
+  margin-top: 4px;
+  display: none;
+}
+.field-error.visible { display: block; }
+
+#form-error {
+  background: rgba(192,57,43,0.07);
+  border: 1px solid rgba(192,57,43,0.25);
+  color: var(--error);
+  padding: 14px 18px;
+  font-size: 14px;
+  margin-bottom: 16px;
+  display: none;
+  line-height: 1.55;
+}
+#form-error.visible { display: block; }
+
+/* ── SUBMIT BUTTON ── */
+.submit-btn {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 20px 40px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.25s, transform 0.25s, box-shadow 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+  opacity: 0;
+  animation: fadeUp 0.6s ease 0.8s forwards;
+}
+.submit-btn:hover:not(:disabled) {
+  background: var(--accent-light);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(107,63,160,0.28);
+}
+.submit-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+.submit-btn.loading .spinner { display: block; }
+.submit-btn.loading .btn-text { opacity: 0.7; }
+
+.submit-note {
+  font-size: 12px;
+  color: var(--warm-gray);
+  text-align: center;
+  margin-top: 12px;
+  line-height: 1.6;
+  opacity: 0;
+  animation: fadeUp 0.6s ease 0.9s forwards;
+}
+.submit-note a { color: var(--warm-gray); border-bottom: 1px solid var(--rule); text-decoration: none; }
+
+/* ── RIGHT COLUMN ── */
+.checkout-right {
+  background: var(--ink);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 52px 40px;
+  display: flex;
+  flex-direction: column;
+}
+.checkout-right::after {
+  content: '$17';
+  position: fixed;
+  font-family: 'Playfair Display', serif;
+  font-size: 240px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.025);
+  bottom: -10px;
+  right: -10px;
+  pointer-events: none;
+  line-height: 1;
+  z-index: 0;
+}
+.checkout-right > * { position: relative; z-index: 1; }
+
+.product-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  margin-bottom: 32px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+.product-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.summary-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--warm-gray);
+  margin-bottom: 12px;
+}
+.summary-product {
+  font-family: 'Playfair Display', serif;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--cream);
+  line-height: 1.3;
+  margin-bottom: 7px;
+}
+.summary-desc {
+  font-size: 13px;
+  color: rgba(247,243,238,0.4);
+  line-height: 1.65;
+  margin-bottom: 22px;
+}
+.summary-rule { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 0; }
+.summary-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(247,243,238,0.5);
+  margin-bottom: 7px;
+}
+.summary-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+}
+.summary-total-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--warm-gray);
+}
+.summary-price {
+  font-family: 'Playfair Display', serif;
+  font-size: 48px;
+  font-weight: 900;
+  color: white;
+  line-height: 1;
+}
+.summary-price sup { font-size: 20px; vertical-align: top; margin-top: 9px; display: inline-block; color: var(--accent-light); }
+
+.summary-includes { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+.summary-includes-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247,243,238,0.28);
+  margin-bottom: 12px;
+}
+.summary-includes ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.summary-includes li {
+  font-size: 13px;
+  color: rgba(247,243,238,0.55);
+  padding-left: 16px;
+  position: relative;
+  line-height: 1.5;
+}
+.summary-includes li::before { content: '✓'; position: absolute; left: 0; color: var(--accent-light); font-size: 11px; top: 3px; }
+
+.guarantee-box {
+  border: 1px solid rgba(255,255,255,0.09);
+  padding: 22px 24px;
+  margin-top: 24px;
+  position: relative;
+  flex-shrink: 0;
+}
+.guarantee-box-badge {
+  position: absolute;
+  top: -11px;
+  left: 16px;
+  background: var(--ink);
+  padding: 0 10px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-light);
+}
+.guarantee-box p { font-size: 12px; color: rgba(247,243,238,0.48); line-height: 1.7; margin: 0; }
+
+/* ── FOOTER ── */
+footer { padding: 32px 0; border-top: 1px solid var(--rule); text-align: center; }
+footer p { font-size: 12px; color: var(--warm-gray); margin: 0; }
+footer a { color: var(--warm-gray); text-decoration: none; border-bottom: 1px solid var(--rule); transition: color 0.2s; }
+footer a:hover { color: var(--accent); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 960px) {
+  .checkout-wrap { grid-template-columns: 1fr; }
+  .checkout-right { position: static; height: auto; padding: 44px 36px; order: -1; }
+  .checkout-right::after { display: none; }
+  .checkout-left { padding: 44px 36px 64px; }
+}
+@media (max-width: 580px) {
+  .checkout-left { padding: 36px 20px 56px; }
+  .checkout-right { padding: 36px 20px; }
+  .form-row { grid-template-columns: 1fr; }
+  .trust-strip { gap: 14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="checkout-wrap">
+
+  <!-- ══ LEFT: FORM ══ -->
+  <div class="checkout-left">
+
+    <a href="index.html" class="checkout-back">← Back to sales page</a>
+
+    <span class="checkout-eyebrow">Secure Checkout</span>
+    <h1 class="checkout-title">You're One Step Away<br>From <em>Building Your List.</em></h1>
+    <p class="checkout-subtitle">Complete your order below. Instant access delivered to your inbox.</p>
+
+    <div class="trust-strip">
+      <div class="trust-item"><span>🔒</span> SSL Secured</div>
+      <div class="trust-item"><span>⚡</span> Instant Access</div>
+      <div class="trust-item"><span>↩</span> Money-Back Guarantee</div>
+    </div>
+
+    <!-- GLOBAL ERROR -->
+    <div id="form-error"></div>
+
+    <!-- ── CONTACT ── -->
+    <div class="form-block">
+      <span class="form-section-label">Contact Information</span>
+      <div class="form-group">
+        <label for="full-name">Full Name</label>
+        <input type="text" id="full-name" placeholder="Jane Smith" autocomplete="name">
+        <span class="field-error" id="err-name">Please enter your full name.</span>
+      </div>
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+        <span class="field-error" id="err-email">Please enter a valid email address.</span>
+      </div>
+    </div>
+
+    <!-- ── BILLING ── -->
+    <div class="form-block">
+      <span class="form-section-label">Billing Address</span>
+      <div class="form-group">
+        <label for="address">Street Address</label>
+        <input type="text" id="address" placeholder="123 Main Street" autocomplete="street-address">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="city">City</label>
+          <input type="text" id="city" placeholder="New York" autocomplete="address-level2">
+        </div>
+        <div class="form-group">
+          <label for="zip">ZIP / Postal Code</label>
+          <input type="text" id="zip" placeholder="10001" autocomplete="postal-code">
+        </div>
+      </div>
+      <div class="form-group select-wrap">
+        <label for="country">Country</label>
+        <select id="country" autocomplete="country">
+          <option value="">Select country…</option>
+          <option value="US">United States</option>
+          <option value="CA">Canada</option>
+          <option value="GB">United Kingdom</option>
+          <option value="AU">Australia</option>
+          <option value="NZ">New Zealand</option>
+          <option value="IE">Ireland</option>
+          <option value="PH">Philippines</option>
+          <option value="SG">Singapore</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── PAYMENT ── -->
+    <div class="form-block">
+      <span class="form-section-label">Payment Details</span>
+
+      <!-- Stripe Card Element mounts here -->
+      <div class="form-group">
+        <label>Card Details</label>
+        <div class="card-element-wrapper" id="card-wrapper">
+          <div id="card-element"></div>
+        </div>
+        <span class="field-error" id="err-card"></span>
+        <div class="card-icons">
+          <div class="card-icon">VISA</div>
+          <div class="card-icon">MC</div>
+          <div class="card-icon">AMEX</div>
+          <div class="card-icon">DISC</div>
+        </div>
+        <p class="secure-note">256-bit SSL encryption. Your card details never touch our servers.</p>
+      </div>
+    </div>
+
+    <!-- SUBMIT -->
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">
+      <div class="spinner"></div>
+      <span class="btn-text">Complete Purchase — $17</span>
+    </button>
+    <p class="submit-note">
+      By completing your purchase you agree to our <a href="#">Terms of Service</a>.
+      One-time charge of $17. No subscriptions.
+    </p>
+
+  </div>
+
+  <!-- ══ RIGHT: ORDER SUMMARY ══ -->
+  <div class="checkout-right">
+
+    <div class="product-img">
+      <img
+        src="https://raw.githubusercontent.com/jhenccaneta/sociallyjhenig2/branch/main/leadgenerationmockup.png"
+        alt="Instagram Lead Generation Blueprint"
+        onerror="this.parentElement.style.background='rgba(107,63,160,0.15)';this.style.display='none';"
+      >
+    </div>
+
+    <span class="summary-label">Your Order</span>
+    <div class="summary-product">Instagram Lead Generation Blueprint</div>
+    <p class="summary-desc">Turn your Instagram content into a daily, automatic source of email subscribers — without ads or a big following.</p>
+
+    <hr class="summary-rule">
+    <div class="summary-line"><span>Subtotal</span><span>$17.00</span></div>
+    <div class="summary-line"><span>Tax</span><span>$0.00</span></div>
+    <hr class="summary-rule">
+
+    <div class="summary-total-row">
+      <span class="summary-total-label">Total Due Today</span>
+      <div class="summary-price"><sup>$</sup>17</div>
+    </div>
+
+    <div class="summary-includes">
+      <span class="summary-includes-label">What's Included</span>
+      <ul>
+        <li>The complete Blueprint (PDF + walkthrough)</li>
+        <li>Step-by-step capture system setup</li>
+        <li>Lead magnet positioning guide</li>
+        <li>Content-to-list CTA templates</li>
+        <li>Free tools setup guide</li>
+        <li>Lifetime access — no expiry</li>
+      </ul>
+    </div>
+
+    <div class="guarantee-box">
+      <span class="guarantee-box-badge">The Guarantee</span>
+      <p>If you go through the Blueprint and can't see exactly how to apply it — email us and get the $17 back. No questions, no friction.</p>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 Instagram Lead Generation Blueprint &nbsp;·&nbsp; <a href="#">Privacy Policy</a> &nbsp;·&nbsp; <a href="#">Terms</a> &nbsp;·&nbsp; <a href="index.html">Back to Sales Page</a></p>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   WHOP + STRIPE CHECKOUT INTEGRATION
+   ─────────────────────────────────────────────────────────
+   Flow:
+   1. Stripe.js mounts a secure card element
+   2. On submit: validate fields → create Stripe PaymentMethod
+   3. POST to Whop API to create a checkout session with the
+      PaymentMethod attached
+   4. If payment_intent requires action → confirm with Stripe
+   5. On success → redirect to thankyou.html
+═══════════════════════════════════════════════════════════ */
+
+// ── CONFIG ──────────────────────────────────────────────
+// Replace with your actual keys before going live:
+const WHOP_PLAN_ID       = 'prod_luqByMZ5Cg4fg';
+// Your Whop Bearer token (server-side in production — kept here for demo)
+const WHOP_API_KEY       = 'YOUR_WHOP_API_KEY';
+// Your Stripe publishable key (from Whop dashboard → Settings → Payments)
+const STRIPE_PK          = 'YOUR_STRIPE_PUBLISHABLE_KEY';
+const RETURN_URL         = 'thankyou.html';
+// ────────────────────────────────────────────────────────
+
+// Initialise Stripe
+let stripe, cardElement;
+
+function initStripe() {
+  if (typeof Stripe === 'undefined') {
+    console.warn('Stripe.js not loaded — retrying...');
+    setTimeout(initStripe, 500);
+    return;
+  }
+  stripe = Stripe(STRIPE_PK);
+  const elements = stripe.elements({
+    fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap' }]
+  });
+  cardElement = elements.create('card', {
+    style: {
+      base: {
+        fontFamily: "'DM Sans', sans-serif",
+        fontSize: '15px',
+        color: '#1A1612',
+        '::placeholder': { color: '#DDD5CC' },
+        iconColor: '#9A8F87',
+      },
+      invalid: { color: '#C0392B', iconColor: '#C0392B' },
+    },
+    hidePostalCode: true, // we collect it ourselves
+  });
+  cardElement.mount('#card-element');
+
+  // Focus / blur border state
+  cardElement.on('focus', () => {
+    document.getElementById('card-wrapper').classList.add('focused');
+  });
+  cardElement.on('blur', () => {
+    document.getElementById('card-wrapper').classList.remove('focused');
+  });
+  cardElement.on('change', (e) => {
+    const errEl = document.getElementById('err-card');
+    const wrapper = document.getElementById('card-wrapper');
+    if (e.error) {
+      errEl.textContent = e.error.message;
+      errEl.classList.add('visible');
+      wrapper.classList.add('error');
+    } else {
+      errEl.classList.remove('visible');
+      wrapper.classList.remove('error');
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initStripe);
+
+// ── VALIDATION ───────────────────────────────────────────
+function showFieldError(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('visible'); }
+}
+function clearFieldError(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('visible');
+}
+function setFormError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg;
+  el.classList.toggle('visible', !!msg);
+}
+
+function validateFields() {
+  let valid = true;
+  const name  = document.getElementById('full-name').value.trim();
+  const email = document.getElementById('email').value.trim();
+
+  clearFieldError('err-name');
+  clearFieldError('err-email');
+
+  if (!name) { showFieldError('err-name', 'Please enter your full name.'); valid = false; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showFieldError('err-email', 'Please enter a valid email address.');
+    valid = false;
+  }
+  return valid;
+}
+
+// ── SUBMIT ───────────────────────────────────────────────
+async function handleSubmit() {
+  if (!validateFields()) return;
+
+  const btn = document.getElementById('submit-btn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+  setFormError('');
+
+  const name    = document.getElementById('full-name').value.trim();
+  const email   = document.getElementById('email').value.trim();
+  const address = document.getElementById('address').value.trim();
+  const city    = document.getElementById('city').value.trim();
+  const zip     = document.getElementById('zip').value.trim();
+  const country = document.getElementById('country').value;
+
+  try {
+    // STEP 1 — Create Stripe PaymentMethod from card element
+    const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
+      type: 'card',
+      card: cardElement,
+      billing_details: {
+        name,
+        email,
+        address: { line1: address, city, postal_code: zip, country: country || undefined },
+      },
+    });
+
+    if (pmError) {
+      setFormError(pmError.message);
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      return;
+    }
+
+    // STEP 2 — Create Whop checkout session
+    const whopRes = await fetch('https://api.whop.com/api/v2/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${WHOP_API_KEY}`,
+      },
+      body: JSON.stringify({
+        plan_id: WHOP_PLAN_ID,
+        payment_method_id: paymentMethod.id,
+        email,
+        return_url: RETURN_URL,
+        billing_details: { name, email },
+      }),
+    });
+
+    const whopData = await whopRes.json();
+
+    if (!whopRes.ok) {
+      throw new Error(whopData?.message || whopData?.error || 'Payment failed. Please try again.');
+    }
+
+    // STEP 3 — Handle 3DS / additional Stripe confirmation if needed
+    if (whopData.client_secret) {
+      const { error: confirmError } = await stripe.confirmCardPayment(whopData.client_secret);
+      if (confirmError) {
+        setFormError(confirmError.message);
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        return;
+      }
+    }
+
+    // STEP 4 — Success → redirect
+    window.location.href = RETURN_URL;
+
+  } catch (err) {
+    setFormError(err.message || 'Something went wrong. Please try again or contact support.');
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+// Allow Enter key to submit
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.activeElement.tagName !== 'BUTTON') {
+    handleSubmit();
+  }
+});
+</script>
+</body>
+</html>
